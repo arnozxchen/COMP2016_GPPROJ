@@ -454,7 +454,7 @@ def cancel_booking()->None:
     cursor.execute("SELECT CID FROM PLACE WHERE CID = :1", [customer_id])
     customer = cursor.fetchone()
     if not customer:
-        print(Fore.RED + f"Customer {customer_id} not found!" + Style.RESET_ALL)
+        print(Fore.RED + f"Customer {customer_id} not found in booking!" + Style.RESET_ALL)
         return
     
    
