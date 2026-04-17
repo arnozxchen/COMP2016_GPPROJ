@@ -408,21 +408,16 @@ def make_booking()->None:
 
     try:
         # Insert value into BOOKING
-        sql = "INSERT INTO BOOKING VALUES(:1, :2)"
-        booking_info = [current_booking_num, current_booking_fare]
+        sql = "INSERT INTO BOOKING(BID, CID, BFARE) VALUES(:1, :2, :3)"
+        booking_info = [current_booking_num, cust_data, current_booking_fare]
         cursor.execute(sql, booking_info)
         connection.commit()
 
         # Insert value into HAS
         for flight in flight_data:
             has_info = [current_booking_num, flight]
-            sql = "INSERT INTO HAS VALUES(:1, :2)"
+            sql = "INSERT INTO HAS(BID, FLIGHT_NO) VALUES(:1, :2)"
             cursor.execute(sql, has_info)
-        connection.commit()
-
-        # Insert value into PLACE
-        place_info = [current_booking_num, cust_data]
-        cursor.execute("INSERT INTO PLACE VALUES(:1, :2)", place_info)
         connection.commit()
 
         print(f"Booking successful")
