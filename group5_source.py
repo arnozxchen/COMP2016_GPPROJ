@@ -132,10 +132,10 @@ def print_flight(flight_no:str)->None:
     Prints the info of the specific flight.
     '''
 
-    columns = ["Flight No.", "From", "To", "Departure Time", "Arrive Time", "Fare", "Seat Limit"]
+    columns = ["Flight_no", "Departure Time", "Arrive Time", "Fare", "Seat Limit", "Source", "Dest"]
 
 
-    cursor.execute("SELECT flight_no, source, dest, depart_time, arrive_time, fare, seat_limit FROM flights WHERE flight_no = :1", [flight_no])
+    cursor.execute("SELECT flight_no, depart_time, arrive_time, fare, seat_limit, source, dest FROM flights WHERE flight_no = :1", [flight_no])
     row = cursor.fetchone()
 
     if row is None:
@@ -167,7 +167,7 @@ def add_flight()->None:
     Adds a new flight to the database. The user is prompted to input all the necessary info of the flight, separated by commas.
     '''
 
-    data = input("Enter the flight info (Flight No., Departure Time, Arrive Time, Fare, Seat Limit, Fare, Seat Limit, From, To): ").strip()
+    data = input("Enter the flight info (Flight No., Departure Time, Arrive Time, Fare, Seat Limit, From, To): ").strip()
     data = [t.strip() for t in data.split(',') if t]
 
     if len(data) < 7:
@@ -178,7 +178,7 @@ def add_flight()->None:
         cursor.execute("INSERT INTO flights (flight_no, depart_time, arrive_time, fare, seat_limit, source, dest) VALUES (:1, TO_DATE(:2, 'YYYY-MM-DD HH24:MI:SS'), TO_DATE(:3, 'YYYY-MM-DD HH24:MI:SS'),:4, :5, :6, :7)", data)
         connection.commit()
 
-        print(f"Created Flight {data[0]} successfully.")
+        print(f"Succeed to add flight {data[0]}.")
     except Exception as ex:
         # print(ex) # release this line to see the raw error message for debugging
         print(Fore.RED + "Fail to create a new flight." + Style.RESET_ALL)
@@ -332,95 +332,69 @@ def search_flight()->None:
 
         #print(rows) # release this line to see the raw query result for debugging
 
-        
 
 def make_booking()->None:
-    while True:
-        cust_data = input("Enter your customer ID to make your booking (C0X): ").strip()
+    print("Book a flight by inputting customer id and flight no")
+    print("Format: Customer_ID, Flight_NO, Flight_NO, Flight_NO (if any)")
+    print("Example: C01, CX105, CX104")
+    data_input = input("Enter: ")
+    data = [t.strip() for t in data_input.split(',') if t.strip()]
+    if len(data) <= 1:
+        print(Fore.RED + "Invalid input. Please try again" + Style.RESET_ALL)
+        return
+    else:
+        cust_data, *flight_data = data
 
-        sql = "SELECT CID FROM CUSTOMERS WHERE CID = :cid"
-        cursor.execute(sql, {"cid": cust_data})
-        validity_info = cursor.fetchall()
+    sql = "SELECT * FROM CUSTOMERS WHERE CID = :1"
+    cursor.execute(sql, [cust_data])
+    cust_return = cursor.fetchone()
+    if not cust_return:
+        print(Fore.RED + f"Customer {cust_data} does not exist! Please try again" + Style.RESET_ALL)
+        return
+    
+    sql = "SELECT * FROM FLIGHTS WHERE FLIGHT_NO = :1"
+    for flight in flight_data:
+        cursor.execute(sql, [flight])
+        flight_return = cursor.fetchone()
+        if not flight_return:
+            print(Fore.RED + f"Flight {flight} not exist!" + Style.RESET_ALL)
+            return
 
-        if len(validity_info) != 1:
-            print(Fore.RED + "Invalid Customer ID." + Style.RESET_ALL)
-        else:
-            break
-
-    while True:
-        flight_input = input("Enter the flight_no you wish to book (no more than three legs at a time, e.g., CX101, CX102): ")
-        flight_data = [t.strip() for t in flight_input.split(',') if t.strip()]
-
-        if len(flight_data) > 3 or len(flight_data) <= 0:
-            print(Fore.RED + "Invalid input. Please enter 1 to 3 flight numbers." + Style.RESET_ALL)
-            continue
-
-        flight_details = []
-        is_all_exist = True
-        
-        for fn in flight_data:
-            cursor.execute("SELECT SOURCE, DEST, DEPART_TIME, ARRIVE_TIME FROM FLIGHTS WHERE FLIGHT_NO = :1", [fn])
-            row = cursor.fetchone()
-            if row:
-                flight_details.append({
-                    'no': fn,
-                    'source': row[0],
-                    'dest': row[1],
-                    'depart': row[2],
-                    'arrive': row[3]
-                })
-            else:
-                is_all_exist = False
-                break
-
-        # Check whether all flights exist
-        if not is_all_exist:
-            print(Fore.RED + "One or more flight numbers do not exist. Please try again." + Style.RESET_ALL)
-            continue
-
-        # Checking connections (if travelling on multiple legs)
-        valid_connection = True
-        if len(flight_details) > 1:
-            for i in range(len(flight_details) - 1):
-                prev = flight_details[i]
-                curr = flight_details[i+1]
-                
-                if prev['dest'] != curr['source']:
-                    print(Fore.RED + f"Route gap: {prev['no']} ends at {prev['dest']}, but {curr['no']} starts at {curr['source']}." + Style.RESET_ALL)
-                    valid_connection = False
-                    break
-                
-                if prev['arrive'] >= curr['depart']:
-                    print(Fore.RED + f"Time conflict: {prev['no']} arrives at {prev['arrive']}, which is after {curr['no']} departs at {curr['depart']}." + Style.RESET_ALL)
-                    valid_connection = False
-                    break
-
-        if valid_connection:
-            print(Fore.GREEN + "Flights verified and route is connected." + Style.RESET_ALL)
-            break
-        else:
-            continue
-
-    cursor.execute("SELECT BID FROM BOOKING")
-    booking_count = len(cursor.fetchall())
-    current_booking_num = f"B{booking_count + 1:d}"
+    cursor.execute("SELECT MAX(TO_NUMBER(SUBSTR(BID, 2))) FROM BOOKING")
+    max_bid = cursor.fetchone()[0]
+    if not max_bid:
+        current_bid = "B1"
+    else:
+        current_bid = f"B{max_bid + 1:d}"
     current_booking_fare = calculate_fare(flight_data)
 
     try:
         # Insert value into BOOKING
         sql = "INSERT INTO BOOKING(BID, CID, BFARE) VALUES(:1, :2, :3)"
-        booking_info = [current_booking_num, cust_data, current_booking_fare]
+        booking_info = [current_bid, cust_data, current_booking_fare]
         cursor.execute(sql, booking_info)
-        connection.commit()
 
         # Insert value into HAS
         for flight in flight_data:
-            has_info = [current_booking_num, flight]
+            has_info = [current_bid, flight]
             sql = "INSERT INTO HAS(BID, FLIGHT_NO) VALUES(:1, :2)"
             cursor.execute(sql, has_info)
         connection.commit()
 
-        print(f"Booking successful")
+        print(Fore.GREEN + "Booking successful" + Style.RESET_ALL)
+    except oracledb.DatabaseError as ex:
+        connection.rollback()
+
+        error_obj = ex.args[0]
+        err_code = error_obj.code
+        err_msg = error_obj.message
+        
+        if err_code == 20000 or err_code == 20001 or err_code == 20002:
+            print(Fore.RED + f"{err_msg.splitlines()[0].split(': ', 1)[-1]}" + Style.RESET_ALL)
+        else:
+            print(Fore.RED + "Invaild input." + Style.RESET_ALL)
+        
+        print(Fore.RED + "Failed to place this booking." + Style.RESET_ALL)
     except Exception as ex:
         # print(ex) # release this line to see the raw error message for debugging
         print(Fore.RED + "Failed to place this booking." + Style.RESET_ALL)
@@ -446,14 +420,14 @@ def cancel_booking()->None:
     booking_id = data[1].upper()
     
     
-    cursor.execute("SELECT CID FROM PLACE WHERE CID = :1", [customer_id])
+    cursor.execute("SELECT CID FROM BOOKING WHERE CID = :1", [customer_id])
     customer = cursor.fetchone()
     if not customer:
         print(Fore.RED + f"Customer {customer_id} not found in booking!" + Style.RESET_ALL)
         return
     
    
-    cursor.execute("SELECT B.BID FROM BOOKING B, PLACE P WHERE B.BID = P.BID AND B.BID = :1 AND P.CID = :2",[booking_id, customer_id])
+    cursor.execute("SELECT BID FROM BOOKING WHERE BID = :1 AND CID = :2",[booking_id, customer_id])
     
     booking_exists = cursor.fetchone()
     if not booking_exists:
@@ -486,17 +460,14 @@ def cancel_booking()->None:
         connection.rollback()
         print(Fore.RED + f"✗ Cancellation failed: {str(e)}" + Style.RESET_ALL)
 
-
-
-
 def print_menu()->None:
     print(Fore.CYAN)
     print("(1) Add flight")
     print("(2) Display flight info")
     print("(3) Delete flight")
     print("(4) Search Flight")
-    print("(5) Cancel booking")
-    print("(6) Make your booking")
+    print("(5) Make your booking")
+    print("(6) Cancel booking")
     print("(7) Quit")
     print(Style.RESET_ALL)
     print("-" * 40)
@@ -521,10 +492,9 @@ while True:
     elif option == "4":
         search_flight()
     elif option == "5":
-        cancel_booking()
-
-    elif option == "6":
         make_booking()
+    elif option == "6":
+        cancel_booking()
     elif option == "7":
         break
     else:
