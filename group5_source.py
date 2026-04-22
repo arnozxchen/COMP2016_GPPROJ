@@ -203,26 +203,33 @@ def del_flight()->None:
         cursor.execute("DELETE FROM flights WHERE flight_no = :1", [flight_no])
         connection.commit()
 
-        print(f"The flight {flight_no} has been deleted.")
+        print(f"Succeed to delete the flight {flight_no}.")
     
     except Exception as ex:
         # print(ex) # release this line to see the raw error message for debugging
         print(f"Fail to delete flight {flight_no}")
 
+# Calculate total fare with discount
 def calculate_fare(flight_list)->float:
     fares = []
+
+    # Iterate through each flight number and query the corresponding fare from the database.
     for fn in flight_list:
         cursor.execute("SELECT fare FROM flights WHERE flight_no = :1", [fn])
         row = cursor.fetchone()
         fares.append(float(row[0]))
 
     s = sum(fares)
+    # Obtain the amount of flight(s)
     n = len(fares)
 
+    # One flight, no discount
     if n == 1:
         return round(s, 2)
+    # Two flights, discount 10%
     elif n == 2:
         return round(s * 0.90, 2)
+    # Three flights, discount 25%
     elif n == 3:
         return round(s * 0.75, 2)
     return 0
@@ -275,20 +282,26 @@ def two_stop_flights(source: str, dest: str, max_time:int)->None:
         flight3 = row[2]
         fare = calculate_fare([flight1, flight2, flight3])
         print(f"({idx}) {flight1}->{flight2}->{flight3}, fare: {int(fare) if fare.is_integer() else fare}")
+# The above part first counts the number of flights meeting the requirements(zero stop, one stop, two stop),
+# then retrieves and prints all matching flight numbers along with their fares
 
 def search_flight()->None:
+    #Enable the user to input data
     data = input("Enter the source, destination, stop times and maximum time: ")
     data = [t.strip() for t in data.split(',') if t]
 
+    #Check whether the input data meet standard 
     if len(data) < 4:
         print(Fore.RED + "Invalid input." + Style.RESET_ALL)
         return 
-
+        
+    #Fetch the data to different variables
     source = data[0]
     destination = data[1]
     stop_times = data[2]
     max_time = int(data[3])
 
+    #Notify the user of input errors
     try:
         stop_num = int(stop_times)
         if stop_num > 2:
@@ -299,6 +312,7 @@ def search_flight()->None:
         return
 
     all_flights = []
+    # Check if stop times is greater than 0, if true, retrieve results into list
     if int(stop_times) >= 0:
         cursor.execute(
             "SELECT flight_no FROM FLIGHTS WHERE source = :1 AND dest = :2 AND (ARRIVE_TIME - DEPART_TIME)*24 <= :3 ORDER BY depart_time ASC",
@@ -307,6 +321,7 @@ def search_flight()->None:
         for row in cursor.fetchall():
             all_flights.append( [row[0]] )
 
+    # Check if stop times is greater than 1; if true, further retrieve results into list
     if int(stop_times) >= 1:
         cursor.execute(
             "SELECT A.flight_no, B.flight_no FROM flights A JOIN flights B ON A.dest = B.source WHERE A.arrive_time < B.depart_time AND A.source = :1 AND B.dest = :2 AND (B.ARRIVE_TIME-A.DEPART_TIME)*24<=:3 ORDER BY A.depart_time ASC",
@@ -315,6 +330,7 @@ def search_flight()->None:
         for row in cursor.fetchall():
            all_flights.append( list(row) )
 
+    # Check if stop times is greater than 2; if true, further retrieve results into list
     if int(stop_times) >= 2:
         cursor.execute(
             "SELECT A.flight_no, B.flight_no, C.flight_no FROM flights A JOIN flights B ON A.dest = B.source JOIN flights C on B.dest=C.source WHERE A.arrive_time < B.depart_time AND B.arrive_time < C.depart_time AND A.source = :1 AND C.dest = :2 AND (C.ARRIVE_TIME-A.DEPART_TIME)*24<=:3 ORDER BY A.depart_time ASC",
@@ -323,35 +339,44 @@ def search_flight()->None:
         for row in cursor.fetchall():
             all_flights.append( list(row) )
 
+    # Print the result of how many flights are in the list
     print(f"\nTotal {len(all_flights)} choice(s):")
     print("=" * 40)
     for idx, flight_list in enumerate(all_flights, start=1):
+        # Seperate all the flight_no in the trip by arrow
         flight_str = "->".join(flight_list)
+        # Calculate the total fare use calculate_fare function
         fare = calculate_fare(flight_list)
+        # Print the result in each row
         print(f"({idx}) {flight_str}, fare: {int(fare) if fare.is_integer() else fare}")
 
-        #print(rows) # release this line to see the raw query result for debugging
+        # print(rows) # release this line to see the raw query result for debugging
 
 
 def make_booking()->None:
+    # Process flight booking with customer ID and flight numbers
     print("Book a flight by inputting customer id and flight no")
     print("Format: Customer_ID, Flight_NO, Flight_NO, Flight_NO (if any)")
     print("Example: C01, CX105, CX104")
     data_input = input("Enter: ")
     data = [t.strip() for t in data_input.split(',') if t.strip()]
+
+    # Check input validity
     if len(data) <= 1:
         print(Fore.RED + "Invalid input. Please try again" + Style.RESET_ALL)
         return
     else:
         cust_data, *flight_data = data
 
+    # Check if customer exists
     sql = "SELECT * FROM CUSTOMERS WHERE CID = :1"
     cursor.execute(sql, [cust_data])
     cust_return = cursor.fetchone()
     if not cust_return:
         print(Fore.RED + f"Customer {cust_data} does not exist! Please try again" + Style.RESET_ALL)
         return
-    
+
+    # Validate all flights exist
     sql = "SELECT * FROM FLIGHTS WHERE FLIGHT_NO = :1"
     for flight in flight_data:
         cursor.execute(sql, [flight])
@@ -360,12 +385,15 @@ def make_booking()->None:
             print(Fore.RED + f"Flight {flight} not exist!" + Style.RESET_ALL)
             return
 
+    # Generate new unique booking ID
     cursor.execute("SELECT MAX(TO_NUMBER(SUBSTR(BID, 2))) FROM BOOKING")
     max_bid = cursor.fetchone()[0]
     if not max_bid:
         current_bid = "B1"
     else:
         current_bid = f"B{max_bid + 1:d}"
+
+    # Calculate total discounted fare
     current_booking_fare = calculate_fare(flight_data)
 
     try:
@@ -381,24 +409,27 @@ def make_booking()->None:
             cursor.execute(sql, has_info)
         connection.commit()
 
-        print(Fore.GREEN + "Booking successful" + Style.RESET_ALL)
+        print(Fore.GREEN + f"Succeed to book a flight for {cust_data}, booking id is {current_bid}" + Style.RESET_ALL)
     except oracledb.DatabaseError as ex:
+        # Rollback on database error
         connection.rollback()
 
         error_obj = ex.args[0]
         err_code = error_obj.code
         err_msg = error_obj.message
-        
+
+        # Handle custom error codes from triggers
         if err_code == 20000 or err_code == 20001 or err_code == 20002:
             print(Fore.RED + f"{err_msg.splitlines()[0].split(': ', 1)[-1]}" + Style.RESET_ALL)
         else:
             print(Fore.RED + "Invaild input." + Style.RESET_ALL)
         
-        print(Fore.RED + "Failed to place this booking." + Style.RESET_ALL)
+        print(Fore.RED + "Fail to book a flight." + Style.RESET_ALL)
     except Exception as ex:
         # print(ex) # release this line to see the raw error message for debugging
-        print(Fore.RED + "Failed to place this booking." + Style.RESET_ALL)
+        print(Fore.RED + "Fail to book a flight." + Style.RESET_ALL)
         print(cursor.warning)
+
 
 
 def cancel_booking()->None:
@@ -408,10 +439,12 @@ def cancel_booking()->None:
     print("=" * 50)
     print("Format: Customer_ID, Booking_ID")
     print("Example: C01, B1")
-    
+
+    # Read and clean user input: split by comma and strip whitespace
     data = input("Enter: ").strip()
     data = [t.strip() for t in data.split(',') if t]
     
+    # Check the input number containing two parts Customer_ID and Booking_ID, and update the customer_id and booking_id value
     if len(data) < 2:
         print(Fore.RED + "Invalid input. Need Customer_ID and Booking_ID." + Style.RESET_ALL)
         return
@@ -419,14 +452,14 @@ def cancel_booking()->None:
     customer_id = data[0].upper()
     booking_id = data[1].upper()
     
-    
+    # Check if the customer exists in the BOOKING table (note: the customer possibly exist in CUSTOMERS)
     cursor.execute("SELECT CID FROM BOOKING WHERE CID = :1", [customer_id])
     customer = cursor.fetchone()
     if not customer:
         print(Fore.RED + f"Customer {customer_id} not found in booking!" + Style.RESET_ALL)
         return
     
-   
+   # Check if the customer has such booking in the BOOKING table
     cursor.execute("SELECT BID FROM BOOKING WHERE BID = :1 AND CID = :2",[booking_id, customer_id])
     
     booking_exists = cursor.fetchone()
@@ -434,7 +467,7 @@ def cancel_booking()->None:
         print(Fore.RED + f"Booking {booking_id} not found for customer {customer_id}!" + Style.RESET_ALL)
         return
     
-   
+    # If the customer and booking exist in the BOOKING table, check if the customer and such booking exist in the HAS table (if the count=0, it's possible that this booking has already been cancelled.)
     cursor.execute("SELECT COUNT(*) FROM HAS WHERE BID = :1", [booking_id])
     has_count = cursor.fetchone()[0]
     if has_count == 0:
@@ -445,30 +478,56 @@ def cancel_booking()->None:
     cursor.execute("SELECT FLIGHT_NO FROM HAS WHERE BID = :1", [booking_id])
     flights = cursor.fetchall()
     flight_list = [f[0] for f in flights]
-    
+
+    # Delete the customer and this booking in the HAS table ( still maintain in BOOKING table)
     try:
-        
         cursor.execute("DELETE FROM HAS WHERE BID = :1", [booking_id])
         connection.commit()
         
       
-        print(Fore.GREEN + f"\n✓ Booking {booking_id} for customer {customer_id} is cancelled!" + Style.RESET_ALL)
-        print(f"  Cancelled flights: {' -> '.join(flight_list)}")
+        print(Fore.GREEN + f"\nBooking {booking_id} for customer {customer_id} is cancelled!" + Style.RESET_ALL)
+        print(f"Cancelled flights: {' -> '.join(flight_list)}")
         
         
     except Exception as e:
         connection.rollback()
-        print(Fore.RED + f"✗ Cancellation failed: {str(e)}" + Style.RESET_ALL)
+        print(Fore.RED + f"Cancellation failed: {str(e)}" + Style.RESET_ALL)
+
+def display_flights_tables() -> None:
+    print("\n" + "=" * 98)
+    try:
+        cursor.execute("SELECT * FROM FLIGHTS WHERE ROWNUM <= 1")
+        cols = [col[0] for col in cursor.description]
+
+        cursor.execute("SELECT * FROM FLIGHTS")
+        rows = cursor.fetchall()
+
+        if not rows:
+            print("(Empty table)")
+            return
+
+        print(f"{'FLIGHT_NO':<10} {'SOURCE':<12} {'DEST':<12} {'DEPART_TIME':<20} {'ARRIVE_TIME':<20} {'FARE':<8} {'SEAT_LIMIT':<10}")
+        print("-" * 98)
+
+        for row in rows:
+            row_str = [str(i) if i is not None else "NULL" for i in row]
+            print(f"{row_str[0]:<10} {row_str[1]:<12} {row_str[2]:<12} {row_str[3]:<20} {row_str[4]:<20} {row_str[5]:<8} {row_str[6]:<10}")
+
+    except Exception as ex:
+        print(Fore.RED + f"Cannot read table FLIGHTS: {str(ex)}" + Style.RESET_ALL)
+        
+    print("\n" + "=" * 98)
 
 def print_menu()->None:
     print(Fore.CYAN)
-    print("(1) Add flight")
-    print("(2) Display flight info")
+    print("(1) Display flight info")
+    print("(2) Add flight")
     print("(3) Delete flight")
-    print("(4) Search Flight")
-    print("(5) Make your booking")
+    print("(4) Search flight")
+    print("(5) Book flight")
     print("(6) Cancel booking")
-    print("(7) Quit")
+    print("(7) Display flights table")
+    print("(8) Quit")
     print(Style.RESET_ALL)
     print("-" * 40)
 
@@ -484,9 +543,9 @@ while True:
     option = input("Please choose an option (1 - 7): ").strip()
 
     if option == "1":
-        add_flight()
-    elif option == "2":
         flight_info()
+    elif option == "2":
+        add_flight()
     elif option == "3":
         del_flight()
     elif option == "4":
@@ -496,6 +555,8 @@ while True:
     elif option == "6":
         cancel_booking()
     elif option == "7":
+        display_flights_tables()
+    elif option == "8":
         break
     else:
         print("Invalid option number.")

@@ -1,0 +1,36 @@
+SQL> select * from flights;
+
+FLIGHT_NO SOURCE     DEST       DEPART_TIME ARRIVE_TIME       FARE SEAT_LIMIT
+--------- ---------- ---------- ----------- ----------- ---------- ----------
+CX100     HK         Tokyo      15-MAR-26   15-MAR-26         2000          3
+CX101     Tokyo      New York   15-MAR-26   15-MAR-26         4000          3
+CX102     HK         Beijing    15-MAR-26   15-MAR-26         2000          0
+CX103     Beijing    Tokyo      15-MAR-26   15-MAR-26         1500          2
+CX104     New York   Beijing    15-MAR-26   15-MAR-26         1500          3
+CX105     HK         New York   15-MAR-26   15-MAR-26         1000          2
+CX106     New York   LA         15-MAR-26   16-MAR-26         5000          3
+CX107     Beijing    Tokyo      15-MAR-26   15-MAR-26         1500          3
+
+8 rows selected.
+
+SQL> select * from customers;
+
+CID CNAME                NAT PASSPORT
+--- -------------------- --- --------
+C01 Alice                CHN P1234567
+C02 Bob                  UK  P1111111
+C03 Cole                 US  P7654321
+
+SQL> select * from booking;
+
+BID   CID      BFARE     FCOUNT
+----- --- ---------- ----------
+B2    C01       3150          2
+B1    C01       2250          2
+
+SQL> select * from has;
+
+BID   FLIGH  FSEQUENCE
+----- ----- ----------
+B2    CX103          2
+B2    CX102          1

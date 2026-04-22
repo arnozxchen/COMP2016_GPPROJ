@@ -1,0 +1,33 @@
+SQL> DESC Flights
+ Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------------------
+ FLIGHT_NO                                 NOT NULL VARCHAR2(5)
+ SOURCE                                    NOT NULL VARCHAR2(20)
+ DEST                                      NOT NULL VARCHAR2(20)
+ DEPART_TIME                               NOT NULL DATE
+ ARRIVE_TIME                               NOT NULL DATE
+ FARE                                      NOT NULL NUMBER(38)
+ SEAT_LIMIT                                NOT NULL NUMBER(38)
+
+SQL> DESC Customers
+ Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------------------
+ CID                                       NOT NULL CHAR(3)
+ CNAME                                     NOT NULL VARCHAR2(20)
+ NATIONALITY                               NOT NULL VARCHAR2(3)
+ PASSPORT                                  NOT NULL VARCHAR2(8)
+
+SQL> DESC Booking
+ Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------------------
+ BID                                       NOT NULL VARCHAR2(5)
+ CID                                       NOT NULL CHAR(3)
+ BFARE                                     NOT NULL FLOAT(63)
+ FCOUNT                                    NOT NULL NUMBER(38)
+
+SQL> DESC Has
+ Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------------------
+ BID                                       NOT NULL VARCHAR2(5)
+ FLIGHT_NO                                 NOT NULL VARCHAR2(5)
+ FSEQUENCE                                 NOT NULL NUMBER(38)
